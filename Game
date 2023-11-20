@@ -1,0 +1,65 @@
+import pygame
+import random
+import math
+
+pygame.init()
+
+window_width = 800
+window_height = 600
+window = pygame.display.set_mode((window_width, window_height))
+pygame.display.set_caption("Avoid the Falling Objects")
+
+# Player 
+player_width = 50
+player_height = 50
+player_x = window_width // 2 - player_width // 2
+player_y = window_height - player_height - 10
+player_speed = 5
+
+# Falling object
+object_size = 30
+object_speed = 3
+objects = []
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+        # Player movement
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_LEFT:
+                player_x -= player_speed
+            elif event.key == pygame.K_RIGHT:
+                player_x += player_speed
+
+    if random.random() < 0.01:
+        object_x = random.randint(0, window_width - object_size)
+        object_y = -object_size
+        shape_choice = random.choice(["square", "triangle", "circle"])
+        objects.append({"x": object_x, "y": object_y, "shape": shape_choice})
+        
+    for obj in objects:
+        obj["y"] += object_speed
+
+    window.fill((255, 255, 255)) 
+
+    pygame.draw.rect(window, (0, 0, 255), (player_x, player_y, player_width, player_height)) 
+
+    for obj in objects:
+        obj_x = obj["x"]
+        obj_y = obj["y"]
+        shape = obj["shape"]
+
+        if shape == "square":
+            pygame.draw.rect(window, (255, 0, 0), (obj_x, obj_y, object_size, object_size))
+        elif shape == "triangle":
+            pygame.draw.polygon(window, (255, 0, 0), [(obj_x, obj_y + object_size),
+                                                       (obj_x + object_size, obj_y + object_size),
+                                                       (obj_x + object_size / 2, obj_y)])
+        elif shape == "circle":
+            pygame.draw.circle(window, (255, 0, 0), (int(obj_x + object_size / 2), int(obj_y + object_size / 2)),
+                               int(object_size / 2))
+
+    pygame.display.update()
