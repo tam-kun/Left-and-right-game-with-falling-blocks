@@ -1,6 +1,7 @@
 import pygame
 import random
 import math
+import logging
 
 pygame.init()
 
@@ -9,48 +10,164 @@ window_height = 600
 window = pygame.display.set_mode((window_width, window_height))
 pygame.display.set_caption("Avoid the Falling Objects")
 
-# Player 
-player_width = 50
-player_height = 50
-player_x = window_width // 2 - player_width // 2
-player_y = window_height - player_height - 10
-player_speed = 5
+#object Player
+class Player():
+    def __init__(self):
+        self.player_width = 20
+        self.player_height = 20
+        self.player_x = window_width // 2 - self.player_width // 2
+        self.player_y = window_height - self.player_height - 10
+        self.player_speed = 5
+        self.velocity = 0
+        self.hitbox = (self.player_x, self.player_y)
+
+#object Bullet
+
+class Bullet(object):
+    def __init__(self, x, y, radius, color, facing):
+        self.x = x
+        self.y = y
+        self.radius = radius
+        self.color = color
+        self.facing = facing
+        self.vel = 8 * facing
+
+    def draw(self, window):
+        pygame.draw.circle(window, self.color, (self.x, self.y), self.radius)
+
+#object FailingObject
+class FailingObject:
+    def __init__(self, x, y, shape):
+        self.object_size = 30
+        self.object_speed = 0.5
+        self.vel = 0
+
+        self.x = x
+        self.y = y
+        self.shape = shape
+        self.hitbox = pygame.Rect(self.x, self.y, self.object_size, self.object_size)
+
+    def hit(self):  
+        print('hit')
+
+player = Player()
 
 # Falling object
 object_size = 30
-object_speed = 3
+object_speed = 5
+
 objects = []
+
+#Frames per second
+
+clock = pygame.time.Clock()
+
+shootLoop = 0
+
+bullets = []
 
 running = True
 while running:
+    clock.tick(60)
+
+    if shootLoop > 0:
+        shootLoop += 1
+    if shootLoop > 3:
+        shootLoop = 0
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
 
-        # Player movement
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_LEFT:
-                player_x -= player_speed
-            elif event.key == pygame.K_RIGHT:
-                player_x += player_speed
+    for bullet in bullets:
+        for obj in objects:
+            obj_rect = pygame.Rect(obj.x, obj.y, object_size, object_size)
 
-    if random.random() < 0.01:
+            if bullet.y - bullet.radius < obj_rect.y + obj_rect.height and bullet.y + bullet.radius > obj_rect.y:
+                if bullet.x + bullet.radius > obj_rect.x and bullet.x - bullet.radius < obj_rect.x + obj_rect.width:
+                    obj.hit()
+                    bullets.pop(bullets.index(bullet))
+
+    for bullet in bullets:
+        if window_height > bullet.y > 0:
+            bullet.y -= bullet.vel
+        else:
+            bullets.pop(bullets.index(bullet))
+
+    # Track key events
+    keys = pygame.key.get_pressed()
+
+    if keys[pygame.K_LEFT]:
+        player.velocity_x = -player.player_speed
+    elif keys[pygame.K_RIGHT]:
+        player.velocity_x = player.player_speed
+    else:
+        player.velocity_x = 0
+
+    if keys[pygame.K_UP]:
+        player.velocity_y = -player.player_speed
+    elif keys[pygame.K_DOWN]:
+        player.velocity_y = player.player_speed
+    else:
+        player.velocity_y = 0
+
+    player.player_x += player.velocity_x
+    player.player_x = player.player_x % window.get_width()
+
+    player.player_y += player.velocity_y
+    player.player_y = player.player_y % window.get_height()
+
+    #Bullet shooting
+
+    if keys[pygame.K_SPACE] and shootLoop == 0:
+        if len(bullets) < 1:
+            bullets.append(Bullet(round(player.player_x + player.player_width // 2),
+                round(player.player_y - player.player_height), 6, (0, 0, 0), 1))
+
+    for obj in objects:
+        obj.y += object_speed
+
+
+    #Falling object randomizer
+
+    if random.random() < 0.3:
         object_x = random.randint(0, window_width - object_size)
         object_y = -object_size
         shape_choice = random.choice(["square", "triangle", "circle"])
-        objects.append({"x": object_x, "y": object_y, "shape": shape_choice})
+        objects.append(FailingObject(object_x, object_y, shape_choice))
         
     for obj in objects:
-        obj["y"] += object_speed
+        obj.y += object_speed
 
     window.fill((255, 255, 255)) 
 
-    pygame.draw.rect(window, (0, 0, 255), (player_x, player_y, player_width, player_height)) 
+
+    #Collision checker
+
+    player_rect = pygame.Rect(player.player_x, player.player_y, player.player_width, player.player_height)
 
     for obj in objects:
-        obj_x = obj["x"]
-        obj_y = obj["y"]
-        shape = obj["shape"]
+        if player_rect.colliderect(obj.hitbox):
+            obj.hit()
+            running = False
+
+        for obj in objects:
+            if player_rect.colliderect(obj.hitbox):
+                print("YOU ARE A FAILURE!!!")
+                running = False
+
+    #Player draw
+
+    pygame.draw.rect(window, (0, 0, 255), (player.player_x, player.player_y, player.player_width, player.player_height)) 
+
+    player_rect = pygame.Rect(player.player_x, player.player_y, player.player_width, player.player_height)
+
+    #Falling objects draw
+
+    for obj in objects:
+        obj_x = obj.x
+        obj_y = obj.y
+        shape = obj.shape
 
         if shape == "square":
             pygame.draw.rect(window, (255, 0, 0), (obj_x, obj_y, object_size, object_size))
@@ -59,7 +176,13 @@ while running:
                                                        (obj_x + object_size, obj_y + object_size),
                                                        (obj_x + object_size / 2, obj_y)])
         elif shape == "circle":
-            pygame.draw.circle(window, (255, 0, 0), (int(obj_x + object_size / 2), int(obj_y + object_size / 2)),
-                               int(object_size / 2))
+           pygame.draw.circle(window, (255, 0, 0), (obj_x + object_size // 2, obj_y + object_size // 2), object_size // 2)
+        
+        def hit(self):  
+            print('hit')
+
+    for bullet in bullets:
+        bullet.draw(window)
 
     pygame.display.update()
+       
